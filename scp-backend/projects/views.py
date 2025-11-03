@@ -24,4 +24,4 @@ class MyProjectsList(generics.ListAPIView):
         if not investor:
             return Project.objects.none()
         # projetos onde esse investidor tem aportes
-        return Project.objects.filter(contributions__investor=investor).distinct().order_by('-created_at')
+        return Project.objects.filter(investments__investor=investor).distinct().order_by('-created_at')
