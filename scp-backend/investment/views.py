@@ -1,4 +1,4 @@
-from rest_framework import viewsets, permissions
+from rest_framework import viewsets, permissions, decorators, response
 from .models import Investment
 from .serializers import InvestmentSerializer
 
@@ -7,7 +7,12 @@ class InvestmentViewSet(viewsets.ModelViewSet):
     serializer_class = InvestmentSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def perform_create(self, serializer):
-        # Garante que o investidor é o do usuário logado
-        investor = getattr(self.request.user, "investor", None)
-        serializer.save(investor=investor)
+    @decorators.action(detail=False, methods=["get"], url_path="mine")
+    def mine(self, request):
+        """
+        Retorna todos os investimentos do usuário autenticado.
+        """
+        user = request.user
+        queryset = Investment.objects.filter(investor__user=user)
+        serializer = self.get_serializer(queryset, many=True)
+        return response.Response(serializer.data)

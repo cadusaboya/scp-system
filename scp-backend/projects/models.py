@@ -25,6 +25,7 @@ class Project(models.Model):
     sold_date = models.DateField(null=True, blank=True)
 
     cash_balance = models.DecimalField(max_digits=14, decimal_places=2, default=0)  # “Caixa”
+    share_value = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)  # “Valor da Cota”
     estimated_sale_value = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
     actual_sale_value = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
 
