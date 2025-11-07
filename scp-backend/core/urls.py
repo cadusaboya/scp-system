@@ -11,6 +11,7 @@ urlpatterns = [
     path("api/investments/", include("investment.urls")),
     path('api/categories/', include('expenses.urls')),
     path("api/budgets/", include("budgets.urls")),
+    path("api/investors/", include("investors.urls")),
 
     path('api/auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
