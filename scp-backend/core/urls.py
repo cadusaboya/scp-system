@@ -9,7 +9,7 @@ urlpatterns = [
     # 👇 Rota completa de projetos
     path('api/projects/', include('projects.urls')),
     path("api/investments/", include("investment.urls")),
-    path('api/categories/', include('expenses.urls')),
+    path('api/expenses/', include('expenses.urls')),
     path("api/budgets/", include("budgets.urls")),
     path("api/investors/", include("investors.urls")),
 

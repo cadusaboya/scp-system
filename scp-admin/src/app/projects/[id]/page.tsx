@@ -21,6 +21,10 @@ export default async function ProjectDetailsPage({ params }: any) {
         <h1 className="text-3xl font-bold">{project.name}</h1>
 
         <div className="flex gap-3">
+          <Link href={`/projects/${id}/expenses/`}>
+            <Button variant="default">Ver Notas</Button>
+          </Link>
+
           <Link href={`/projects/${id}/edit`}>
             <Button variant="default">Editar</Button>
           </Link>

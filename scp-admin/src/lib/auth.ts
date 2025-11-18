@@ -22,7 +22,7 @@ export async function loginAction(username: string, password: string) {
   cookieStore.set({
     name: "access",
     value: data.access,
-    httpOnly: true,
+    httpOnly: false,
     sameSite: "lax",
     path: "/",
   });
@@ -30,7 +30,7 @@ export async function loginAction(username: string, password: string) {
   cookieStore.set({
     name: "refresh",
     value: data.refresh,
-    httpOnly: true,
+    httpOnly: false,
     sameSite: "lax",
     path: "/",
   });

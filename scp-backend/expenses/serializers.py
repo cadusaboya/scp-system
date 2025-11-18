@@ -18,8 +18,16 @@ class ExpenseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Expense
-        fields = ('id', 'project', 'vendor', 'number', 'issue_date', 'paid_date',
-                  'status', 'total', 'attachment_url', 'items')
+        fields = (
+            'id',
+            'project',
+            'vendor',
+            'number',
+            'date',
+            'attachment_url',
+            'total',
+            'items',
+        )
         read_only_fields = ('total',)
 
     def create(self, validated_data):
@@ -34,7 +42,6 @@ class ExpenseSerializer(serializers.ModelSerializer):
         return expense
 
     def update(self, instance, validated_data):
-        # Atualização simples (não trata update granular de items)
         items_data = validated_data.pop('items', None)
         for attr, val in validated_data.items():
             setattr(instance, attr, val)
@@ -49,6 +56,7 @@ class ExpenseSerializer(serializers.ModelSerializer):
             instance.total = total
             instance.save(update_fields=['total'])
         return instance
+
 
 class VendorSerializer(serializers.ModelSerializer):
     class Meta:
