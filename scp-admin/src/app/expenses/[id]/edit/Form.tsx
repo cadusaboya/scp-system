@@ -1,36 +1,57 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { apiPost } from "@/lib/api";
+import { apiPost, apiPatch } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-export default function ExpenseForm({ projectId, vendors, categories, products }) {
+export default function EditExpenseForm({ expense, vendors, categories, products }) {
   const router = useRouter();
 
-  const [vendorName, setVendorName] = useState("");
-  const [selectedVendorId, setSelectedVendorId] = useState(null);
+  const [vendorName, setVendorName] = useState(expense.vendor?.name || "");
+  const [date, setDate] = useState(expense.date || "");
+  const [number, setNumber] = useState(expense.number || "");
+  const [attachmentUrl, setAttachmentUrl] = useState(expense.attachment_url || "");
 
-  const [date, setDate] = useState("");
-  const [number, setNumber] = useState("");
-  const [attachmentUrl, setAttachmentUrl] = useState("");
+  // items inicial: converte category/product ID → nome
+  const initialItems = (expense.items || []).map((it) => {
+    const categoryName = categories.find((c) => c.id === it.category)?.name || "";
+    const productName = products.find((p) => p.id === it.product)?.name || "";
 
-  const [items, setItems] = useState([
-    { category: "", product: "", qty: "", unit_price: "" },
-  ]);
+    return {
+      id: it.id ?? null,
+      category: categoryName,
+      product: productName,
+      qty: String(it.qty ?? ""),
+      unit_price: String(it.unit_price ?? ""),
+    };
+  });
+
+  const [items, setItems] = useState(
+    initialItems.length
+      ? initialItems
+      : [{ id: null, category: "", product: "", qty: "", unit_price: "" }]
+  );
 
   const getToken = () =>
-    document.cookie.split("; ").find((c) => c.startsWith("access="))?.split("=")[1];
+    document.cookie.split("; ").find((c) => c.trim().startsWith("access="))?.split("=")[1];
 
-  const total = items.reduce(
-    (sum, it) => sum + Number(it.qty || 0) * Number(it.unit_price || 0),
-    0
+  const total = useMemo(
+    () =>
+      items.reduce(
+        (sum, it) => sum + Number(it.qty || 0) * Number(it.unit_price || 0),
+        0
+      ),
+    [items]
   );
 
   function addItem() {
-    setItems([...items, { category: "", product: "", qty: "", unit_price: "" }]);
+    setItems([
+      ...items,
+      { id: null, category: "", product: "", qty: "", unit_price: "" },
+    ]);
   }
 
   function removeItem(index) {
@@ -39,132 +60,95 @@ export default function ExpenseForm({ projectId, vendors, categories, products }
 
   function updateItem(index, field, value) {
     const updated = [...items];
-    updated[index][field] = value;
+    updated[index] = { ...updated[index], [field]: value };
     setItems(updated);
   }
 
-  // NORMALIZAÇÃO (para produtos, não vendors)
-  const normalize = (str) =>
-    str
-      ?.trim()
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/\s+/g, " ");
+  // Category AGORA é fixa — sem criar
+  function resolveCategory(name) {
+    const cat = categories.find((c) => c.name === name);
+    if (!cat) throw new Error(`Categoria inválida: ${name}`);
+    return cat.id;
+  }
 
-  // ------------------------------------
-  // SUBMIT
-  // ------------------------------------
+  // Produto ainda pode ser criado
+  async function resolveProduct(name, token) {
+    if (!name.trim()) return null;
+
+    const existing = products.find((p) => p.name === name);
+    if (existing) return existing.id;
+
+    const created = await apiPost("/expenses/products/", { name }, token);
+    return created.id;
+  }
+
   async function handleSubmit() {
     const token = getToken();
     if (!token) {
-      alert("Token não encontrado — faça login.");
+      alert("Token não encontrado — faça login novamente.");
       return;
     }
 
-    //-------------------------------------------
-    // 🔥 VENDOR — SOLUÇÃO PRO DEFINITIVA
-    //-------------------------------------------
-    let vendorId = selectedVendorId;
+    // --------------------- VENDOR ---------------------
+    let vendorId = null;
+    const existingVendor = vendors.find((v) => v.name === vendorName);
 
-    if (!vendorId && vendorName.trim() !== "") {
-      const newVendor = await apiPost(
-        "/expenses/vendors/",
-        { name: vendorName.trim() },
-        token
-      );
+    if (existingVendor) vendorId = existingVendor.id;
+    else if (vendorName.trim() !== "") {
+      const newVendor = await apiPost("/expenses/vendors/", { name: vendorName }, token);
       vendorId = newVendor.id;
-    }
-
-    // ------------------- CATEGORY ---------------------
-    function resolveCategory(name) {
-      const c = categories.find((c) => c.name === name);
-      if (!c) throw new Error(`Categoria inválida: ${name}`);
-      return c.id;
-    }
-
-    // ------------------- PRODUCT ----------------------
-    async function resolveProduct(name) {
-      if (!name.trim()) return null;
-
-      const existing = products.find((p) => normalize(p.name) === normalize(name));
-      if (existing) return existing.id;
-
-      const created = await apiPost(
-        "/expenses/products/",
-        { name: name.trim() },
-        token
-      );
-      return created.id;
     }
 
     // ------------------- ITEMS ------------------------
     const resolvedItems = [];
 
     for (const it of items) {
-      const categoryId = resolveCategory(it.category);
-      const productId = await resolveProduct(it.product);
+      const catId = resolveCategory(it.category); // categoria fixa
+      const prodId = await resolveProduct(it.product, token);
 
-      resolvedItems.push({
-        category: categoryId,
-        product: productId,
+      const obj = {
+        category: catId,
+        product: prodId,
         qty: Number(it.qty || 0),
         unit_price: Number(it.unit_price || 0),
-      });
+      };
+
+      if (it.id) obj.id = it.id;
+
+      resolvedItems.push(obj);
     }
 
-    // ------------------- PAYLOAD ------------------------
     const payload = {
-      project: Number(projectId),
       vendor_id: vendorId,
       date,
       number,
       attachment_url: attachmentUrl,
       items: resolvedItems,
+      total: Number(total.toFixed(2)),
     };
 
-        console.log("========= DEBUG EXPENSE SUBMIT =========");
+    await apiPatch(`/expenses/${expense.id}/`, payload, token);
 
-    console.log("vendorName:", vendorName);
-    console.log("selectedVendorId:", selectedVendorId);
-
-    console.log("FINAL vendorId:", vendorId);
-
-    console.log("Resolved Items:", resolvedItems);
-
-    console.log("PAYLOAD ENVIADO:", payload);
-
-    console.log("========================================");
-
-    await apiPost("/expenses/", payload, token);
-
-    router.push(`/projects/${projectId}`);
+    router.push(`/expenses/${expense.id}`);
   }
 
-  // ------------------------------------
-  // FORM
-  // ------------------------------------
   return (
     <div className="flex justify-center">
       <Card className="p-8 w-[900px] space-y-8">
-        <h1 className="text-3xl font-semibold">Nova Nota — Projeto {projectId}</h1>
+        <h1 className="text-3xl font-semibold">
+          Editar Nota — Projeto {expense.project}
+        </h1>
 
         {/* FORNECEDOR */}
         <div>
           <label className="text-sm font-semibold">Fornecedor</label>
-          <input
+            <input
             list="vendors-list"
             className="w-full border rounded p-2 mt-1"
-            placeholder="Selecione ou digite um fornecedor"
+            placeholder="Selecione ou digite um novo fornecedor"
             value={vendorName}
-            onInput={(e) => {
-              const value = e.target.value;
-              setVendorName(value);
-
-              const match = vendors.find((v) => v.name === value);
-              setSelectedVendorId(match ? match.id : null);
-            }}
-          />
+            onInput={(e) => setVendorName(e.target.value)}   // <-- AQUI O FIX REAL
+            />
 
           <datalist id="vendors-list">
             {vendors.map((v) => (
@@ -173,7 +157,7 @@ export default function ExpenseForm({ projectId, vendors, categories, products }
           </datalist>
         </div>
 
-        {/* DATA E NUMERO */}
+        {/* DATA E NÚMERO */}
         <div className="flex gap-4">
           <div className="flex-1">
             <label className="text-sm font-semibold">Data</label>
@@ -190,7 +174,7 @@ export default function ExpenseForm({ projectId, vendors, categories, products }
         <div>
           <label className="text-sm font-semibold">Link da Nota</label>
           <Input
-            placeholder="URL do PDF/JPG da nota"
+            placeholder="URL do PDF/JPG"
             value={attachmentUrl}
             onChange={(e) => setAttachmentUrl(e.target.value)}
           />
@@ -202,16 +186,15 @@ export default function ExpenseForm({ projectId, vendors, categories, products }
 
           {items.map((it, index) => (
             <Card key={index} className="p-4 space-y-3 bg-gray-50">
-
               <div className="grid grid-cols-4 gap-3 items-center">
 
-                {/* CATEGORIA */}
+                {/* CATEGORIA — SELECT FIXO */}
                 <select
                   className="border p-2 rounded"
                   value={it.category}
                   onChange={(e) => updateItem(index, "category", e.target.value)}
                 >
-                  <option value="">Selecione a categoria</option>
+                  <option value="">Selecione uma categoria</option>
                   {categories.map((c) => (
                     <option key={c.id} value={c.name}>
                       {c.name}
@@ -225,7 +208,7 @@ export default function ExpenseForm({ projectId, vendors, categories, products }
                   className="border p-2 rounded"
                   placeholder="Produto"
                   value={it.product}
-                  onInput={(e) => updateItem(index, "product", e.target.value)}
+                  onChange={(e) => updateItem(index, "product", e.target.value)}
                 />
                 <datalist id="products-list">
                   {products.map((p) => (
@@ -244,7 +227,9 @@ export default function ExpenseForm({ projectId, vendors, categories, products }
                 <Input
                   placeholder="Preço"
                   value={it.unit_price}
-                  onChange={(e) => updateItem(index, "unit_price", e.target.value)}
+                  onChange={(e) =>
+                    updateItem(index, "unit_price", e.target.value)
+                  }
                 />
               </div>
 
@@ -252,6 +237,12 @@ export default function ExpenseForm({ projectId, vendors, categories, products }
                 <Button variant="destructive" onClick={() => removeItem(index)}>
                   Remover Item
                 </Button>
+              )}
+
+              {it.id && (
+                <div className="text-xs text-slate-500">
+                  id do item: {it.id}
+                </div>
               )}
             </Card>
           ))}
@@ -267,7 +258,7 @@ export default function ExpenseForm({ projectId, vendors, categories, products }
         </h2>
 
         <Button className="w-full" onClick={handleSubmit}>
-          Salvar Nota
+          Salvar Alterações
         </Button>
       </Card>
     </div>

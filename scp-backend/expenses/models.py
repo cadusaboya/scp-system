@@ -1,12 +1,34 @@
 from django.db import models
 from projects.models import Project
+from django.core.exceptions import ValidationError
+
+CATEGORIES = [
+    "Mão de Obra",
+    "Material",
+    "Aquisição",
+    "Custas Cartoriais",
+    "Custos Imobiliária",
+    "Projetos e Licenças",
+    "Ferramentas e Equipamentos",
+    "Frete e Transporte",
+    "Administração da Obra",
+    "Diversos / Contingência",
+]
 
 class Category(models.Model):
-    name  = models.CharField(max_length=120, unique=True)  # Ex.: Material, Serviço, Frete, Taxa
+    name  = models.CharField(max_length=120, unique=True)
     active = models.BooleanField(default=True)
 
     class Meta:
         ordering = ['name']
+
+    def clean(self):
+        if self.name not in CATEGORIES:
+            raise ValidationError(f"Categoria '{self.name}' não é permitida.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()  # força validar antes de salvar
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name

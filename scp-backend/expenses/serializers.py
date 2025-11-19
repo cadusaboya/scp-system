@@ -8,12 +8,38 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class NoteItemSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source="category.name", read_only=True)
+    product_name = serializers.CharField(source="product.name", read_only=True)
+
     class Meta:
         model = NoteItem
-        fields = ('id', 'category', 'product', 'qty', 'unit_price', 'line_total')
-        read_only_fields = ('line_total',)
+        fields = (
+            'id',
+            'category',
+            'category_name',
+            'product',
+            'product_name',
+            'qty',
+            'unit_price',
+            'line_total',
+        )
+
+
+class VendorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Vendor
+        fields = "__all__"
 
 class ExpenseSerializer(serializers.ModelSerializer):
+    vendor = VendorSerializer(read_only=True)
+    vendor_id = serializers.PrimaryKeyRelatedField(
+        queryset=Vendor.objects.all(),
+        source="vendor",
+        write_only=True,
+        required=False,
+        allow_null=True
+    )
+
     items = NoteItemSerializer(many=True)
 
     class Meta:
@@ -27,6 +53,7 @@ class ExpenseSerializer(serializers.ModelSerializer):
             'attachment_url',
             'total',
             'items',
+            'vendor_id'
         )
         read_only_fields = ('total',)
 
@@ -56,12 +83,6 @@ class ExpenseSerializer(serializers.ModelSerializer):
             instance.total = total
             instance.save(update_fields=['total'])
         return instance
-
-
-class VendorSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Vendor
-        fields = "__all__"
 
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
