@@ -23,7 +23,6 @@ function getItemTotal(item: any) {
     }
   }
 
-  // fallback (não deve ser usado no seu caso)
   const qty = Number(item.qty ?? 0);
   const unit = Number(item.unit_price ?? item.unitPrice ?? 0);
   return qty * unit;
@@ -43,21 +42,29 @@ const OFFICIAL_CATEGORIES = [
   "Diversos / Contingência",
 ];
 
+// Formatador de moeda
+const fmt = (value: number | string) =>
+  typeof value === "number"
+    ? new Intl.NumberFormat("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+      }).format(value)
+    : value;
+
 export default async function ProjectDetailsPage({ params }: any) {
   const { id } = await params;
 
   const cookieStore = await cookies();
   const token = cookieStore.get("access")?.value;
-
   if (!token) return <div>Sem token</div>;
 
-  // Carrega projeto + todas as expenses
-  const [project, expenses, categories] = await Promise.all([
+  // 🔥 Agora carregamos 4 coisas:
+  const [project, expenses, categories, budgetItems] = await Promise.all([
     apiGet(`/projects/${id}/`, token),
     apiGet(`/expenses/?project=${id}&page_size=1000`, token),
     apiGet(`/expenses/categories/`, token),
+    apiGet(`/projects/${id}/budgets/`, token), // ← orçamento previsto
   ]);
-
 
   // Normaliza expenses
   const expenseList = Array.isArray(expenses)
@@ -86,8 +93,10 @@ export default async function ProjectDetailsPage({ params }: any) {
   for (const e of expenseList) {
     const dStr = e.date || e.created_at;
     if (!dStr) continue;
+
     const d = new Date(dStr);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+
     monthlyMap[key] = (monthlyMap[key] || 0) + Number(e.total || 0);
   }
 
@@ -98,47 +107,50 @@ export default async function ProjectDetailsPage({ params }: any) {
       total: monthlyMap[month],
     }));
 
-  // ------------------------------
-  // GASTOS POR CATEGORIA (FINAL)
-  // ------------------------------
-
-  // Inicia todas categorias com 0
+  // ---------------------------------
+  // GASTOS POR CATEGORIA — REAL
+  // ---------------------------------
   const categoryTotals: Record<string, number> = {};
   OFFICIAL_CATEGORIES.forEach((cat) => {
     categoryTotals[cat] = 0;
   });
 
-  // Soma NoteItems por categoria
   for (const e of expenseList) {
     for (const item of e.items ?? []) {
-      // item.category é um ID, então buscamos no array categories
       const catObj = categories.find((c: any) => c.id === item.category);
-      const catName = catObj?.name ?? "Sem categoria";
+      const catName = catObj?.name ?? "";
 
-
-      if (!catName || !OFFICIAL_CATEGORIES.includes(catName)) {
-        continue;
-      }
+      if (!catName || !OFFICIAL_CATEGORIES.includes(catName)) continue;
 
       const itemTotal = getItemTotal(item);
       categoryTotals[catName] += itemTotal;
     }
   }
 
-  // Prepara para render
   const categoriesSpent = OFFICIAL_CATEGORIES.map((cat) => ({
     name: cat,
     total: categoryTotals[cat],
   })).sort((a, b) => b.total - a.total);
 
-  // Formatador
-  const fmt = (value: number | string) =>
-    typeof value === "number"
-      ? new Intl.NumberFormat("pt-BR", {
-          style: "currency",
-          currency: "BRL",
-        }).format(value)
-      : value;
+  // ---------------------------------
+  // REAL x PREVISTO
+  // ---------------------------------
+  const realVsPlanned = OFFICIAL_CATEGORIES.map((cat) => {
+    const real = categoryTotals[cat] || 0;
+    const planned =
+      budgetItems.find((b: any) => b.category_name === cat)?.planned_value || 0;
+
+    const diff = real - planned;
+    const pct = planned > 0 ? (diff / planned) * 100 : 0;
+
+    return {
+      name: cat,
+      planned: Number(planned),
+      real,
+      diff,
+      pct,
+    };
+  });
 
   return (
     <div className="space-y-6">
@@ -219,6 +231,62 @@ export default async function ProjectDetailsPage({ params }: any) {
           </div>
         </Card>
       </div>
+
+      {/* REAL X PREVISTO */}
+      <Card className="p-6">
+        <h2 className="text-xl font-semibold mb-4">Real x Previsto</h2>
+
+        <div className="grid grid-cols-5 font-semibold text-gray-600 border-b pb-2 mb-3">
+          <span>Categoria</span>
+          <span>Previsto</span>
+          <span>Real</span>
+          <span>Diferença</span>
+          <span>Variação %</span>
+        </div>
+
+        <div className="space-y-2">
+          {realVsPlanned.map((row) => {
+            const planned = row.planned;
+            const real = row.real;
+            const diff = real - planned;
+
+            // regra de cor
+            let diffColor = "text-black";
+            let pctColor = "text-black";
+
+            if (diff < 0) {
+              // SOBROU (gastou menos)
+              diffColor = "text-green-600 font-medium";
+              pctColor = "text-green-600 font-medium";
+            } else if (diff > 0) {
+              // ESTOUROU (gastou mais)
+              diffColor = "text-red-600 font-medium";
+              pctColor = "text-red-600 font-medium";
+            }
+
+            // variação percentual (sempre número absoluto para clareza)
+            const pct =
+              planned > 0 ? Math.abs(diff) / planned * 100 : 0;
+
+            return (
+              <div
+                key={row.name}
+                className="grid grid-cols-5 py-1 border-b last:border-none"
+              >
+                <span>{row.name}</span>
+
+                <span>{fmt(planned)}</span>
+                <span>{fmt(real)}</span>
+
+                <span className={diffColor}>{fmt(diff)}</span>
+
+                <span className={pctColor}>{pct.toFixed(1)}%</span>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
 
       {/* Financeiro */}
       <h2 className="text-2xl font-semibold">Financeiro</h2>

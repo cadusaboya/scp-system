@@ -1,53 +1,63 @@
-from rest_framework import viewsets, permissions
-from rest_framework.response import Response
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
-from django.db.models import Max, OuterRef, Subquery
+from rest_framework.response import Response
+from django.db import models
+
 from .models import BudgetItem
 from .serializers import BudgetItemSerializer
+from expenses.models import Category
+from projects.models import Project
+
 
 class BudgetItemViewSet(viewsets.ModelViewSet):
-    queryset = BudgetItem.objects.all().select_related("project", "category")
+    queryset = BudgetItem.objects.all()
     serializer_class = BudgetItemSerializer
-    permission_classes = [permissions.IsAuthenticated]
 
-    # Filtros simples via query params
-    def get_queryset(self):
-        qs = super().get_queryset()
-        project = self.request.query_params.get("project")
-        version = self.request.query_params.get("version")
-        category = self.request.query_params.get("category")
+    @action(detail=False, methods=["put"], url_path="project/(?P<project_id>[^/.]+)/recreate")
+    def recreate_budgets(self, request, project_id=None):
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return Response({"detail": "Project not found"}, status=404)
 
-        if project:
-            qs = qs.filter(project_id=project)
-        if version:
-            qs = qs.filter(version=version)
-        if category:
-            qs = qs.filter(category_id=category)
+        data = request.data
+        if not isinstance(data, list):
+            return Response({"detail": "Expected a list of budgets"}, status=400)
 
-        return qs.order_by("project_id", "category_id", "-version")
+        # 1️⃣ Descobrir versão atual
+        last_version = (
+            BudgetItem.objects
+            .filter(project=project)
+            .aggregate(maxv=models.Max("version"))
+            .get("maxv")
+        ) or 1
 
-    @action(detail=False, methods=["get"], url_path="latest")
-    def latest(self, request):
-        """
-        Lista apenas os itens da ÚLTIMA versão por projeto (útil p/ dashboards).
-        Filtro opcional: ?project=ID
-        """
-        qs = self.get_queryset()
-        project = request.query_params.get("project")
+        new_version = last_version + 1
 
-        # Descobre última versão por projeto (ou por um projeto específico)
-        if project:
-            last_version = qs.filter(project_id=project).aggregate(Max("version"))["version__max"]
-            if last_version is None:
-                return Response([])
-            qs = qs.filter(project_id=project, version=last_version)
-        else:
-            sub = (BudgetItem.objects
-                   .filter(project_id=OuterRef("project_id"))
-                   .values("project_id")
-                   .annotate(v=Max("version"))
-                   .values("v")[:1])
-            qs = qs.filter(version=Subquery(sub))
+        # 2️⃣ Criar os novos budgets
+        created = []
+        for item in data:
+            category_name = item.get("category_name")
+            planned_value = item.get("planned_value", 0)
 
-        serializer = self.get_serializer(qs, many=True)
-        return Response(serializer.data)
+            try:
+              category = Category.objects.get(name=category_name)
+            except Category.DoesNotExist:
+              return Response({"detail": f"Category '{category_name}' not found"}, status=400)
+
+            bi = BudgetItem.objects.create(
+                project=project,
+                category=category,
+                planned_value=planned_value,
+                version=new_version
+            )
+            created.append(bi.id)
+
+        return Response(
+            {
+                "project": project.id,
+                "version_created": new_version,
+                "budget_items": created
+            },
+            status=status.HTTP_201_CREATED
+        )

@@ -43,3 +43,21 @@ export async function apiPatch(path: string, body: any, token: string) {
 
   return res.json();
 }
+
+export async function apiPut(path: string, body: any, token: string) {
+  const res = await fetch(`${API_URL}${path}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const error = await res.text();
+    throw new Error(`Erro no PUT: ${error}`);
+  }
+
+  return res.json();
+}

@@ -12,9 +12,9 @@ async function createProject(formData: FormData) {
 
   const cookieStore = await cookies();
   const token = cookieStore.get("access")?.value;
-
   if (!token) throw new Error("Token não encontrado");
 
+  // Criar o projeto primeiro
   const body = {
     name: formData.get("name"),
     type: formData.get("type"),
@@ -35,7 +35,35 @@ async function createProject(formData: FormData) {
     notes: formData.get("notes") || "",
   };
 
-  await apiPost("/projects/", body, token);
+  const project = await apiPost("/projects/", body, token);
+
+  // 🔥 Agora criar os 10 BudgetItems automaticamente
+  const budgetPayload = [
+    { field: "budget_labor", category: "Mão de Obra" },
+    { field: "budget_material", category: "Material" },
+    { field: "budget_acquisition", category: "Aquisição" },
+    { field: "budget_registry", category: "Custas Cartoriais" },
+    { field: "budget_realestate", category: "Custos Imobiliária" },
+    { field: "budget_licenses", category: "Projetos e Licenças" },
+    { field: "budget_tools", category: "Ferramentas e Equipamentos" },
+    { field: "budget_transport", category: "Frete e Transporte" },
+    { field: "budget_admin", category: "Administração da Obra" },
+    { field: "budget_misc", category: "Diversos" },
+  ];
+
+  for (const item of budgetPayload) {
+    const value = Number(formData.get(item.field) || 0);
+
+    await apiPost(
+      "/budgets/",
+      {
+        project: project.id,
+        category_name: item.category, // Vamos usar category_name no backend (explico abaixo)
+        planned_value: value,
+      },
+      token
+    );
+  }
 
   redirect("/projects");
 }
@@ -48,7 +76,6 @@ export default function CreateProjectPage() {
         <h1 className="text-2xl font-semibold">Criar Projeto</h1>
 
         <form action={createProject} className="space-y-4">
-
           <Input name="name" placeholder="Nome do Projeto" required />
 
           {/* TYPE */}
@@ -81,6 +108,20 @@ export default function CreateProjectPage() {
           <Input type="number" name="actual_sale_value" placeholder="Valor de venda real" />
 
           <Textarea name="notes" placeholder="Observações" />
+
+          {/* 🔥 CAMPOS DO ORÇAMENTO */}
+          <h2 className="text-xl font-semibold pt-4">Orçamento por Categoria</h2>
+
+          <Input name="budget_labor" type="number" placeholder="Mão de Obra" />
+          <Input name="budget_material" type="number" placeholder="Material" />
+          <Input name="budget_acquisition" type="number" placeholder="Aquisição" />
+          <Input name="budget_registry" type="number" placeholder="Custas Cartoriais" />
+          <Input name="budget_realestate" type="number" placeholder="Custos Imobiliária" />
+          <Input name="budget_licenses" type="number" placeholder="Projetos e Licenças" />
+          <Input name="budget_tools" type="number" placeholder="Ferramentas e Equipamentos" />
+          <Input name="budget_transport" type="number" placeholder="Frete e Transporte" />
+          <Input name="budget_admin" type="number" placeholder="Administração da Obra" />
+          <Input name="budget_misc" type="number" placeholder="Diversos" />
 
           <Button type="submit" className="w-full">
             Salvar Projeto
