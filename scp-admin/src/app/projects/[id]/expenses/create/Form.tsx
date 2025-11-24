@@ -24,6 +24,14 @@ export default function ExpenseForm({ projectId, vendors, categories, products }
   const getToken = () =>
     document.cookie.split("; ").find((c) => c.startsWith("access="))?.split("=")[1];
 
+  const normalize = (str) =>
+    str
+      ?.trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ");
+
   const total = items.reduce(
     (sum, it) => sum + Number(it.qty || 0) * Number(it.unit_price || 0),
     0
@@ -43,30 +51,15 @@ export default function ExpenseForm({ projectId, vendors, categories, products }
     setItems(updated);
   }
 
-  // NORMALIZAÇÃO (para produtos, não vendors)
-  const normalize = (str) =>
-    str
-      ?.trim()
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/\s+/g, " ");
-
   // ------------------------------------
   // SUBMIT
   // ------------------------------------
   async function handleSubmit() {
     const token = getToken();
-    if (!token) {
-      alert("Token não encontrado — faça login.");
-      return;
-    }
+    if (!token) return alert("Token não encontrado — faça login.");
 
-    //-------------------------------------------
-    // 🔥 VENDOR — SOLUÇÃO PRO DEFINITIVA
-    //-------------------------------------------
+    // 1. Vendor
     let vendorId = selectedVendorId;
-
     if (!vendorId && vendorName.trim() !== "") {
       const newVendor = await apiPost(
         "/expenses/vendors/",
@@ -76,14 +69,14 @@ export default function ExpenseForm({ projectId, vendors, categories, products }
       vendorId = newVendor.id;
     }
 
-    // ------------------- CATEGORY ---------------------
+    // 2. Category
     function resolveCategory(name) {
       const c = categories.find((c) => c.name === name);
       if (!c) throw new Error(`Categoria inválida: ${name}`);
       return c.id;
     }
 
-    // ------------------- PRODUCT ----------------------
+    // 3. Product
     async function resolveProduct(name) {
       if (!name.trim()) return null;
 
@@ -98,22 +91,18 @@ export default function ExpenseForm({ projectId, vendors, categories, products }
       return created.id;
     }
 
-    // ------------------- ITEMS ------------------------
+    // 4. Items
     const resolvedItems = [];
-
     for (const it of items) {
-      const categoryId = resolveCategory(it.category);
-      const productId = await resolveProduct(it.product);
-
       resolvedItems.push({
-        category: categoryId,
-        product: productId,
+        category: resolveCategory(it.category),
+        product: await resolveProduct(it.product),
         qty: Number(it.qty || 0),
         unit_price: Number(it.unit_price || 0),
       });
     }
 
-    // ------------------- PAYLOAD ------------------------
+    // 5. Payload
     const payload = {
       project: Number(projectId),
       vendor_id: vendorId,
@@ -122,19 +111,6 @@ export default function ExpenseForm({ projectId, vendors, categories, products }
       attachment_url: attachmentUrl,
       items: resolvedItems,
     };
-
-        console.log("========= DEBUG EXPENSE SUBMIT =========");
-
-    console.log("vendorName:", vendorName);
-    console.log("selectedVendorId:", selectedVendorId);
-
-    console.log("FINAL vendorId:", vendorId);
-
-    console.log("Resolved Items:", resolvedItems);
-
-    console.log("PAYLOAD ENVIADO:", payload);
-
-    console.log("========================================");
 
     await apiPost("/expenses/", payload, token);
 
@@ -146,8 +122,10 @@ export default function ExpenseForm({ projectId, vendors, categories, products }
   // ------------------------------------
   return (
     <div className="flex justify-center">
-      <Card className="p-8 w-[900px] space-y-8">
-        <h1 className="text-3xl font-semibold">Nova Nota — Projeto {projectId}</h1>
+      <Card className="p-8 w-[1000px] space-y-8 shadow-lg border border-gray-200">
+        <h1 className="text-3xl font-semibold">
+          Nova Nota — Projeto {projectId}
+        </h1>
 
         {/* FORNECEDOR */}
         <div>
@@ -160,7 +138,6 @@ export default function ExpenseForm({ projectId, vendors, categories, products }
             onInput={(e) => {
               const value = e.target.value;
               setVendorName(value);
-
               const match = vendors.find((v) => v.name === value);
               setSelectedVendorId(match ? match.id : null);
             }}
@@ -196,77 +173,97 @@ export default function ExpenseForm({ projectId, vendors, categories, products }
           />
         </div>
 
-        {/* ITENS */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Itens</h2>
+        {/* ============ ITENS ============ */}
+        <div className="space-y-4 mt-6">
+          <h2 className="text-xl font-semibold">Itens da Nota</h2>
 
-          {items.map((it, index) => (
-            <Card key={index} className="p-4 space-y-3 bg-gray-50">
+          {/* HEADER */}
+          <div className="grid grid-cols-6 gap-3 text-sm font-semibold text-slate-600 px-1">
+            <div>Categoria</div>
+            <div>Produto</div>
+            <div>Qtd</div>
+            <div>Valor Unitário</div>
+            <div>Total</div>
+            <div></div>
+          </div>
 
-              <div className="grid grid-cols-4 gap-3 items-center">
+          {/* LISTA DE ITENS */}
+          {items.map((it, index) => {
+            const itemTotal =
+              Number(it.qty || 0) * Number(it.unit_price || 0);
 
-                {/* CATEGORIA */}
-                <select
-                  className="border p-2 rounded"
-                  value={it.category}
-                  onChange={(e) => updateItem(index, "category", e.target.value)}
-                >
-                  <option value="">Selecione a categoria</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.name}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+            return (
+              <Card key={index} className="p-3 bg-gray-50 border border-gray-200">
+                <div className="grid grid-cols-6 gap-3 items-center">
 
-                {/* PRODUTO */}
-                <input
-                  list="products-list"
-                  className="border p-2 rounded"
-                  placeholder="Produto"
-                  value={it.product}
-                  onInput={(e) => updateItem(index, "product", e.target.value)}
-                />
-                <datalist id="products-list">
-                  {products.map((p) => (
-                    <option key={p.id} value={p.name} />
-                  ))}
-                </datalist>
+                  {/* CATEGORIA */}
+                  <select
+                    className="border p-2 rounded"
+                    value={it.category}
+                    onChange={(e) => updateItem(index, "category", e.target.value)}
+                  >
+                    <option value="">Selecione</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.name}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
 
-                {/* QTD */}
-                <Input
-                  placeholder="Qtd"
-                  value={it.qty}
-                  onChange={(e) => updateItem(index, "qty", e.target.value)}
-                />
+                  {/* PRODUTO */}
+                  <input
+                    list="products-list"
+                    className="border p-2 rounded"
+                    placeholder="Produto"
+                    value={it.product}
+                    onInput={(e) => updateItem(index, "product", e.target.value)}
+                  />
 
-                {/* PREÇO */}
-                <Input
-                  placeholder="Preço"
-                  value={it.unit_price}
-                  onChange={(e) => updateItem(index, "unit_price", e.target.value)}
-                />
-              </div>
+                  {/* QTD */}
+                  <Input
+                    placeholder="Qtd"
+                    value={it.qty}
+                    onChange={(e) => updateItem(index, "qty", e.target.value)}
+                  />
 
-              {items.length > 1 && (
-                <Button variant="destructive" onClick={() => removeItem(index)}>
-                  Remover Item
-                </Button>
-              )}
-            </Card>
-          ))}
+                  {/* VALOR UNITÁRIO */}
+                  <Input
+                    placeholder="R$"
+                    value={it.unit_price}
+                    onChange={(e) => updateItem(index, "unit_price", e.target.value)}
+                  />
+
+                  {/* TOTAL POR ITEM */}
+                  <div className="font-medium">
+                    R$ {itemTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </div>
+
+                  {/* X PARA REMOVER */}
+                  {items.length > 1 && (
+                    <button
+                      className="text-red-500 hover:text-red-700 font-bold text-xl"
+                      onClick={() => removeItem(index)}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
 
           <Button variant="secondary" onClick={addItem}>
-            Adicionar Item
+            + Adicionar Item
           </Button>
         </div>
 
-        {/* TOTAL */}
-        <h2 className="text-xl font-bold">
-          Total: R$ {total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+        {/* TOTAL GERAL */}
+        <h2 className="text-2xl font-bold text-right pt-4">
+          Total Geral: R${" "}
+          {total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
         </h2>
 
-        <Button className="w-full" onClick={handleSubmit}>
+        <Button className="w-full mt-4" onClick={handleSubmit}>
           Salvar Nota
         </Button>
       </Card>
