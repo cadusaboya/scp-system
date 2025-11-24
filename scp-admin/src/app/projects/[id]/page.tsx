@@ -39,7 +39,7 @@ const OFFICIAL_CATEGORIES = [
   "Ferramentas e Equipamentos",
   "Frete e Transporte",
   "Administração da Obra",
-  "Diversos / Contingência",
+  "Diversos",
 ];
 
 // Formatador de moeda
@@ -199,38 +199,73 @@ export default async function ProjectDetailsPage({ params }: any) {
         </Card>
       </div>
 
-      {/* Gráfico + Gastos por Categoria */}
+      {/* Gráfico + Informações */}
       <div className="grid grid-cols-3 gap-6">
+
         {/* GRAFICO */}
         <Card className="p-6 col-span-2">
           <p className="text-lg font-semibold mb-4">Gastos Mensais</p>
           <ExpensesChart data={monthlyData} />
         </Card>
 
-        {/* GASTOS POR CATEGORIA */}
-        <Card className="p-6">
-          <p className="text-lg font-semibold">Gastos por Categoria</p>
+        {/* INFORMAÇÕES DO PROJETO */}
+        <Card className="p-6 space-y-3">
+          <p className="text-lg font-semibold">Informações</p>
 
-          <div className="mt-4 space-y-3">
-            {categoriesSpent.map((c) => {
-              const percent =
-                totalSpent > 0 ? (c.total / totalSpent) * 100 : 0;
+          <div className="space-y-2 text-sm text-gray-800">
 
-              return (
-                <div key={c.name} className="flex justify-between">
-                  <span>{c.name}</span>
-                  <div className="flex gap-3">
-                    <span>{fmt(c.total)}</span>
-                    <span className="text-gray-500 text-sm">
-                      {percent.toFixed(1)}%
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
+            <p>
+              <span className="font-semibold">Quantidade de Cotistas:</span><br />
+              {project.shareholders ? project.shareholders : "—"}
+            </p>
+
+            <p>
+              <span className="font-semibold">Valor da Cota:</span><br />
+              {project.share_value ? fmt(Number(project.share_value)) : "—"}
+            </p>
+
+            <p>
+              <span className="font-semibold">Valor de Venda Estimado:</span><br />
+              {project.estimated_sale_value
+                ? fmt(Number(project.estimated_sale_value))
+                : "—"}
+            </p>
+
+            <hr className="my-2" />
+
+            <p>
+              <span className="font-semibold">Endereço:</span><br />
+              {project.address || "—"}
+            </p>
+
+            <hr className="my-2" />
+
+            <p>
+              <span className="font-semibold">Data de Início:</span><br />
+              {project.start_date || "—"}
+            </p>
+
+            <p>
+              <span className="font-semibold">Previsão de Conclusão:</span><br />
+              {project.expected_end_date || "—"}
+            </p>
+
+            <p>
+              <span className="font-semibold">Data da Venda:</span><br />
+              {project.sold_date || "—"}
+            </p>
+
+            <hr className="my-2" />
+
+            <p>
+              <span className="font-semibold">Observações:</span><br />
+              {project.notes || "—"}
+            </p>
           </div>
         </Card>
+
       </div>
+
 
       {/* REAL X PREVISTO */}
       <Card className="p-6">
@@ -285,36 +320,6 @@ export default async function ProjectDetailsPage({ params }: any) {
             );
           })}
         </div>
-      </Card>
-
-
-      {/* Financeiro */}
-      <h2 className="text-2xl font-semibold">Financeiro</h2>
-      <Card className="p-6 grid grid-cols-3 gap-4">
-        <Info label="Caixa atual" value={fmt(Number(project.cash_balance || 0))} />
-        <Info label="Valor da Cota" value={project.share_value ? fmt(Number(project.share_value)) : "—"} />
-        <Info label="Valor Estimado da Venda" value={project.estimated_sale_value ? fmt(Number(project.estimated_sale_value)) : "—"} />
-        <Info label="Valor Real da Venda" value={project.actual_sale_value ? fmt(Number(project.actual_sale_value)) : "—"} />
-      </Card>
-
-      {/* Datas */}
-      <h2 className="text-2xl font-semibold">Datas</h2>
-      <Card className="p-6 grid grid-cols-3 gap-4">
-        <Info label="Início" value={project.start_date || "—"} />
-        <Info label="Previsão de Conclusão" value={project.expected_end_date || "—"} />
-        <Info label="Data da Venda" value={project.sold_date || "—"} />
-      </Card>
-
-      {/* Endereço */}
-      <h2 className="text-2xl font-semibold">Endereço</h2>
-      <Card className="p-6">
-        <p>{project.address || "Não informado"}</p>
-      </Card>
-
-      {/* Observações */}
-      <h2 className="text-2xl font-semibold">Observações</h2>
-      <Card className="p-6">
-        <p>{project.notes || "—"}</p>
       </Card>
 
       {/* Últimas Notas */}

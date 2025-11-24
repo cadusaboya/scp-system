@@ -16,6 +16,7 @@ class Project(models.Model):
     name = models.CharField(max_length=200)
     type = models.CharField(max_length=20, choices=ProjectType.choices)
     status = models.CharField(max_length=20, choices=ProjectStatus.choices, default=ProjectStatus.PLANEJADO)
+    shareholders = models.PositiveSmallIntegerField(default=0, null=True, blank=True)  # “Quantidade de Cotistas”
 
     stage = models.CharField(max_length=100, null=True, blank=True)  # etapa livre (ex.: Fundação, Acabamento)
     address = models.CharField(max_length=255, blank=True)

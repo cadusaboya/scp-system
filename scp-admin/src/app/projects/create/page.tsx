@@ -103,6 +103,7 @@ export default function CreateProjectPage() {
           <Input type="date" name="sold_date" placeholder="Data de Venda" />
 
           <Input type="number" name="cash_balance" placeholder="Caixa atual" />
+          <Input type="number" name="shareholders" placeholder="Quantidade de Cotistas" />
           <Input type="number" name="share_value" placeholder="Valor da Cota" />
           <Input type="number" name="estimated_sale_value" placeholder="Valor de venda estimado" />
           <Input type="number" name="actual_sale_value" placeholder="Valor de venda real" />
