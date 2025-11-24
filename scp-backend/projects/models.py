@@ -20,6 +20,7 @@ class Project(models.Model):
 
     stage = models.CharField(max_length=100, null=True, blank=True)  # etapa livre (ex.: Fundação, Acabamento)
     address = models.CharField(max_length=255, blank=True)
+    area = models.PositiveSmallIntegerField(default=0, null=True, blank=True)  # “Área Construida”
 
     start_date = models.DateField(null=True, blank=True)
     expected_end_date = models.DateField(null=True, blank=True)

@@ -187,15 +187,17 @@ export default async function ProjectDetailsPage({ params }: any) {
         </Card>
 
         <Card className="p-6">
-          <p className="text-sm text-gray-600">Caixa Atual</p>
+          <p className="text-sm text-gray-600">Caixa</p>
           <h2 className="text-2xl font-semibold">
             {fmt(Number(project.cash_balance || 0))}
           </h2>
         </Card>
 
         <Card className="p-6">
-          <p className="text-sm text-gray-600">Total de Notas</p>
-          <h2 className="text-2xl font-semibold">{totalNotes}</h2>
+          <p className="text-sm text-gray-600">Valor de Venda estimado</p>
+          <h2 className="text-2xl font-semibold">{project.estimated_sale_value
+                ? fmt(Number(project.estimated_sale_value))
+                : "—"}</h2>
         </Card>
       </div>
 
@@ -225,10 +227,8 @@ export default async function ProjectDetailsPage({ params }: any) {
             </p>
 
             <p>
-              <span className="font-semibold">Valor de Venda Estimado:</span><br />
-              {project.estimated_sale_value
-                ? fmt(Number(project.estimated_sale_value))
-                : "—"}
+              <span className="font-semibold">Área Construída:</span><br />
+              {project.area ? project.area : "—"}m2
             </p>
 
             <hr className="my-2" />

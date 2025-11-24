@@ -149,6 +149,7 @@ export default async function EditProjectPage({ params }: any) {
             <Input type="number" name="cash_balance" defaultValue={project.cash_balance} />
             <Input type="number" name="shareholders" defaultValue={project.shareholders} />
             <Input type="number" name="share_value" defaultValue={project.share_value} />
+            <Input type="number" name="area" defaultValue={project.area} />
             <Input type="number" name="estimated_sale_value" defaultValue={project.estimated_sale_value} />
             <Input type="number" name="actual_sale_value" defaultValue={project.actual_sale_value} />
           </div>

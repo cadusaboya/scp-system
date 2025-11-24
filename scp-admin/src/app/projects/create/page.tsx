@@ -104,6 +104,7 @@ export default function CreateProjectPage() {
 
           <Input type="number" name="cash_balance" placeholder="Caixa atual" />
           <Input type="number" name="shareholders" placeholder="Quantidade de Cotistas" />
+          <Input type="number" name="area" placeholder="Área Construída" />
           <Input type="number" name="share_value" placeholder="Valor da Cota" />
           <Input type="number" name="estimated_sale_value" placeholder="Valor de venda estimado" />
           <Input type="number" name="actual_sale_value" placeholder="Valor de venda real" />
