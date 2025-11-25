@@ -61,3 +61,24 @@ export async function apiPut(path: string, body: any, token: string) {
 
   return res.json();
 }
+
+export async function apiDelete(path: string, token: string) {
+  const res = await fetch(`${API_URL}${path}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    let data = {};
+    try {
+      data = await res.json();
+    } catch (e) {}
+    throw new Error(data.detail || "Erro na requisição DELETE");
+  }
+
+  return true;
+}
+
+

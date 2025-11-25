@@ -32,6 +32,20 @@ class ExpenseViewSet(viewsets.ModelViewSet):
             qs = qs.filter(project_id=project)
         return qs
 
+    # ============================
+    #   MÉTODO DESTROY CUSTOMIZADO
+    # ============================
+    def destroy(self, request, *args, **kwargs):
+        expense = self.get_object()
+        project = expense.project
+
+        # 💰 devolve o valor da nota ao caixa
+        project.cash_balance += expense.total
+        project.save(update_fields=["cash_balance"])
+
+        # 🗑️ agora sim, deleta a nota
+        return super().destroy(request, *args, **kwargs)
+
     @action(detail=False, methods=['get'], url_path='sum-by-category')
     def sum_by_category(self, request):
         project = request.query_params.get('project')

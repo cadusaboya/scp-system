@@ -17,8 +17,10 @@ import {
   IconChevronDown,
   IconChevronUp,
 } from "@tabler/icons-react";
+import { Trash2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { apiDelete } from "@/lib/api";
 
 import classes from "./TableSort.module.css";
 
@@ -75,6 +77,11 @@ export default function ExpensesTable({ projectId, expenses }) {
   const [sortBy, setSortBy] = useState(null);
   const [reverseSortDirection, setReverseSortDirection] = useState(false);
 
+  // Recupera token também no client
+  const token = typeof document !== "undefined"
+    ? document.cookie.split("; ").find((c) => c.startsWith("access="))?.split("=")[1]
+    : null;
+
   const setSorting = (field) => {
     const reversed = field === sortBy ? !reverseSortDirection : false;
     setReverseSortDirection(reversed);
@@ -93,25 +100,44 @@ export default function ExpensesTable({ projectId, expenses }) {
       <Table.Td>{exp.number || `#${exp.id}`}</Table.Td>
       <Table.Td>{exp.vendor?.name || "—"}</Table.Td>
       <Table.Td>{exp.date || "—"}</Table.Td>
+
       <Table.Td>
-        R$
+        R${" "}
         {Number(exp.total).toLocaleString("pt-BR", {
           minimumFractionDigits: 2,
         })}
       </Table.Td>
 
       <Table.Td>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <Link href={`/expenses/${exp.id}`}>
             <Button variant="secondary" size="sm">
               Abrir
             </Button>
           </Link>
+
           <Link href={`/expenses/${exp.id}/edit`}>
             <Button variant="outline" size="sm">
               Editar
             </Button>
           </Link>
+
+          {/* BOTÃO DE DELETE */}
+          <button
+            className="p-1 rounded hover:bg-red-50 text-red-600"
+            onClick={async () => {
+              if (!confirm("Tem certeza que deseja excluir esta nota?")) return;
+
+              try {
+                await apiDelete(`/expenses/${exp.id}/`, token);
+                window.location.reload();
+              } catch (e) {
+                alert("Erro ao excluir: " + e.message);
+              }
+            }}
+          >
+            <Trash2 size={18} />
+          </button>
         </div>
       </Table.Td>
     </Table.Tr>
@@ -130,10 +156,38 @@ export default function ExpensesTable({ projectId, expenses }) {
       <Table horizontalSpacing="md" verticalSpacing="xs" miw={700}>
         <Table.Thead>
           <Table.Tr>
-            <Th sorted={sortBy === "number"} reversed={reverseSortDirection} onSort={() => setSorting("number")}>Número</Th>
-            <Th sorted={sortBy === "vendor"} reversed={reverseSortDirection} onSort={() => setSorting("vendor")}>Fornecedor</Th>
-            <Th sorted={sortBy === "date"} reversed={reverseSortDirection} onSort={() => setSorting("date")}>Data</Th>
-            <Th sorted={sortBy === "total"} reversed={reverseSortDirection} onSort={() => setSorting("total")}>Total</Th>
+            <Th
+              sorted={sortBy === "number"}
+              reversed={reverseSortDirection}
+              onSort={() => setSorting("number")}
+            >
+              Número
+            </Th>
+
+            <Th
+              sorted={sortBy === "vendor"}
+              reversed={reverseSortDirection}
+              onSort={() => setSorting("vendor")}
+            >
+              Fornecedor
+            </Th>
+
+            <Th
+              sorted={sortBy === "date"}
+              reversed={reverseSortDirection}
+              onSort={() => setSorting("date")}
+            >
+              Data
+            </Th>
+
+            <Th
+              sorted={sortBy === "total"}
+              reversed={reverseSortDirection}
+              onSort={() => setSorting("total")}
+            >
+              Total
+            </Th>
+
             <Table.Th>Ações</Table.Th>
           </Table.Tr>
         </Table.Thead>
